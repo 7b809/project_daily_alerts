@@ -1,0 +1,9 @@
+aiohttp
+python-dateutil
+yfinance
+python-dotenv
+pytz
+pymongo
+apscheduler
+pytz
+requests
