@@ -12,7 +12,13 @@ from strikes import generate_strikes
 from client import fetch_multiple_requests
 from utils import generate_strike_window, round_to_step
 from spot import get_nifty_spot, get_sensex_spot
-from scheduler import start_scheduler, check_and_backfill
+
+# ✅ Added ensure_today_momentum_sent
+from scheduler import (
+    start_scheduler,
+    check_and_backfill,
+    ensure_today_momentum_sent
+)
 
 
 # -------------------------------------------------------
@@ -85,6 +91,9 @@ async def manual_fetch():
 async def run_app():
 
     print("Starting Index Early Alerts Engine...\n")
+
+    # 🔥 NEW: Ensure today's momentum table is sent on startup
+    await ensure_today_momentum_sent()
 
     # 🔥 Backfill yesterday if missing
     await check_and_backfill()

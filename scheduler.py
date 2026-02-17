@@ -6,6 +6,7 @@ Features:
 - Daily 5PM snapshot save
 - 9:17 AM momentum comparison
 - Telegram alert for top gainers
+- ✅ On startup → Send today's momentum table if not sent
 """
 
 import pytz
@@ -22,6 +23,42 @@ from telegram_service import send_telegram_message
 
 
 IST = pytz.timezone("Asia/Kolkata")
+
+
+# -------------------------------------------------------
+# 🔥 STARTUP CHECK (NEW)
+# -------------------------------------------------------
+
+async def ensure_today_momentum_sent():
+    """
+    On app start:
+    If today's morning momentum table not sent,
+    send it immediately.
+    """
+
+    now = datetime.now(IST)
+    today_str = now.strftime("%Y-%m-%d")
+
+    existing = collection.find_one({
+        "date": today_str,
+        "type": "morning_momentum_sent"
+    })
+
+    if existing:
+        print("✅ Today's momentum table already sent.")
+        return
+
+    print("🔥 Sending today's initial momentum table...")
+    await morning_momentum_job()
+
+    # Mark as sent
+    collection.insert_one({
+        "date": today_str,
+        "type": "morning_momentum_sent",
+        "timestamp": now
+    })
+
+    print("✅ Initial momentum table sent.")
 
 
 # -------------------------------------------------------
@@ -101,14 +138,9 @@ async def daily_5pm_job():
 # -------------------------------------------------------
 # MORNING MOMENTUM SCAN (9:17 AM)
 # -------------------------------------------------------
-def format_option_symbol(symbol: str):
-    """
-    Converts:
-    NIFTY2621725000CE -> 25000 CE
-    SENSEX2622082600PE -> 82600 PE
-    """
 
-    # Remove index name
+def format_option_symbol(symbol: str):
+
     if symbol.startswith("NIFTY"):
         base = symbol.replace("NIFTY", "")
     elif symbol.startswith("SENSEX"):
@@ -116,17 +148,12 @@ def format_option_symbol(symbol: str):
     else:
         base = symbol
 
-    # Strike is everything except last 2 chars (CE/PE)
     strike = base[:-2]
-
-    # Extract numeric strike part
-    # Expiry is 5 digits (YYMDD)
-    # So strike starts from position 5
     strike_price = strike[5:]
-
     option_type = symbol[-2:]
 
     return f"{strike_price} {option_type}"
+
 
 async def morning_momentum_job():
 
@@ -164,26 +191,17 @@ async def morning_momentum_job():
         today_data = result["data"]
 
         yesterday_doc = get_yesterday_snapshot(yesterday_str, exchange)
-
         comparison = compare_with_yesterday(yesterday_doc, today_data)
 
         if not comparison:
             continue
 
-        # ✅ FILTER ONLY INCREASING OPTIONS
         increasing_options = [
             c for c in comparison if c["change"] > 0
         ]
 
         if not increasing_options:
             continue
-
-        # Already sorted descending by % in analytics
-        # So we just use it
-
-        # ---------------------------
-        # BUILD TELEGRAM TABLE
-        # ---------------------------
 
         message = f"<b>🔥 {exchange} Morning Rising Options</b>\n"
         message += "<pre>\n"
@@ -201,7 +219,6 @@ async def morning_momentum_job():
                 f"{item['change_perc']:<8.2f}\n"
             )
 
-
         message += "</pre>"
 
         send_telegram_message(message)
@@ -217,7 +234,6 @@ def start_scheduler():
 
     scheduler = AsyncIOScheduler(timezone=IST)
 
-    # Daily snapshot at 5 PM
     scheduler.add_job(
         daily_5pm_job,
         "cron",
@@ -225,7 +241,6 @@ def start_scheduler():
         minute=0
     )
 
-    # Morning momentum scan at 9:17 AM
     scheduler.add_job(
         morning_momentum_job,
         "cron",
