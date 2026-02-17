@@ -6,7 +6,7 @@ Features:
 - Daily 5PM snapshot save
 - 9:17 AM momentum comparison
 - Telegram alert for top gainers
-- ✅ On startup → Send today's momentum table if not sent
+- 🔥 On startup → ALWAYS run momentum scan (forced)
 """
 
 import pytz
@@ -26,39 +26,21 @@ IST = pytz.timezone("Asia/Kolkata")
 
 
 # -------------------------------------------------------
-# 🔥 STARTUP CHECK (NEW)
+# 🔥 STARTUP FORCE RUN
 # -------------------------------------------------------
 
 async def ensure_today_momentum_sent():
     """
-    On app start:
-    If today's morning momentum table not sent,
-    send it immediately.
+    On every app startup:
+    ALWAYS run morning momentum scan.
+    Ignore database flags.
     """
 
-    now = datetime.now(IST)
-    today_str = now.strftime("%Y-%m-%d")
+    print("🔥 Running startup momentum scan (forced)...")
 
-    existing = collection.find_one({
-        "date": today_str,
-        "type": "morning_momentum_sent"
-    })
-
-    if existing:
-        print("✅ Today's momentum table already sent.")
-        return
-
-    print("🔥 Sending today's initial momentum table...")
     await morning_momentum_job()
 
-    # Mark as sent
-    collection.insert_one({
-        "date": today_str,
-        "type": "morning_momentum_sent",
-        "timestamp": now
-    })
-
-    print("✅ Initial momentum table sent.")
+    print("✅ Startup momentum scan completed.")
 
 
 # -------------------------------------------------------
