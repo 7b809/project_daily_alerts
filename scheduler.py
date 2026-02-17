@@ -187,7 +187,7 @@ async def morning_momentum_job():
 
         message = f"<b>🔥 {exchange} Morning Rising Options</b>\n"
         message += "<pre>\n"
-        message += f"{'Symbol':<20}{'Yest':<4}{'Now':<8}{'%':<8}\n"
+        message += f"{'Symbol':<20}{'Yest':<12}{'Now':<12}{'%':<12}\n"
         message += "-" * 50 + "\n"
 
         for item in increasing_options:
