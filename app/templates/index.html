@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TradingView Alerts</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-dark text-light">
+
+<div class="container mt-4">
+    <h2 class="mb-4">📊 Alerts Dashboard</h2>
+
+    <!-- Pagination Controls -->
+    <div class="d-flex justify-content-between mb-3">
+        <button class="btn btn-secondary btn-sm" onclick="prevPage()">⬅ Prev</button>
+        <span id="pageInfo"></span>
+        <button class="btn btn-secondary btn-sm" onclick="nextPage()">Next ➡</button>
+    </div>
+
+    <table class="table table-dark table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Time (IST)</th>
+                <th>Preview</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="alertsTable"></tbody>
+    </table>
+</div>
+
+<script>
+let expandedRows = new Set();   // track opened rows using _id
+let currentPage = 1;
+const pageSize = 25;
+let allData = [];
+
+// ✅ IST FORMAT
+function formatIST(dateString) {
+    const date = new Date(dateString);
+
+    return date.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+    }).replace(',', ' |');
+}
+
+// ✅ GENERATE PREVIEW (dynamic object safe)
+function generatePreview(data) {
+    if (!data) return '-';
+
+    const keys = Object.keys(data);
+
+    // show first 3 key-value pairs
+    return keys.slice(0, 3).map(k => `${k}:${data[k]}`).join(' | ');
+}
+
+// ✅ FETCH ALERTS
+async function fetchAlerts() {
+    const res = await fetch('/api/alerts');
+    allData = await res.json();
+
+    renderTable();
+}
+
+// ✅ RENDER TABLE WITH PAGINATION
+function renderTable() {
+    const table = document.getElementById('alertsTable');
+    table.innerHTML = '';
+
+    const start = (currentPage - 1) * pageSize;
+    const pageData = allData.slice(start, start + pageSize);
+
+    document.getElementById('pageInfo').innerText =
+        `Page ${currentPage} / ${Math.ceil(allData.length / pageSize)}`;
+
+    pageData.forEach((alert, index) => {
+        const id = alert._id;   // use Mongo _id
+
+        const preview = generatePreview(alert.data);
+        const isOpen = expandedRows.has(id);
+
+        // detect signal dynamically
+        const signal = alert.data.signal || alert.data.action || '';
+
+        let signalColor = 'text-light';
+        if (signal === 'BUY') signalColor = 'text-success';
+        if (signal === 'SELL') signalColor = 'text-danger';
+
+        const highlight = index === 0 && currentPage === 1 ? 'table-primary text-dark' : '';
+
+        const row = `
+            <tr class="${highlight}">
+                <td>${formatIST(alert.created_at)}</td>
+                <td class="${signalColor} fw-bold">${preview}</td>
+                <td>
+                    <button class="btn btn-sm btn-${isOpen ? 'secondary' : 'primary'}"
+                        onclick="toggleDetails('${id}')">
+                        ${isOpen ? 'Hide' : 'View'}
+                    </button>
+                </td>
+            </tr>
+
+            <tr id="details-${id}" style="display:${isOpen ? 'table-row' : 'none'};">
+                <td colspan="3">
+                    <pre class="bg-black text-info p-2 rounded">
+${JSON.stringify(alert.data, null, 2)}
+                    </pre>
+                </td>
+            </tr>
+        `;
+
+        table.innerHTML += row;
+    });
+}
+
+// ✅ TOGGLE DETAILS (ID-based)
+function toggleDetails(id) {
+    const row = document.getElementById(`details-${id}`);
+
+    if (expandedRows.has(id)) {
+        expandedRows.delete(id);
+        row.style.display = 'none';
+    } else {
+        expandedRows.add(id);
+        row.style.display = 'table-row';
+    }
+}
+
+// ✅ PAGINATION
+function nextPage() {
+    if (currentPage * pageSize < allData.length) {
+        currentPage++;
+        renderTable();
+    }
+}
+
+function prevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        renderTable();
+    }
+}
+
+// 🔁 AUTO REFRESH
+setInterval(fetchAlerts, 3000);
+fetchAlerts();
+
+</script>
+
+</body>
+</html>

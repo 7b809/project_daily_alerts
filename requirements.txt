@@ -1,9 +1,6 @@
-aiohttp
-python-dateutil
-yfinance
-python-dotenv
-pytz
+fastapi
+uvicorn
 pymongo
-apscheduler
-pytz
+python-dotenv
+jinja2
 requests
